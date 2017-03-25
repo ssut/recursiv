@@ -1,0 +1,45 @@
+{
+    "_meta": {
+        "hash": {
+            "sha256": "5580daa2736f841aa553c028d1b06c90bd87b24e1ab1797658edfd6041cb9efd"
+        },
+        "requires": {},
+        "sources": [
+            {
+                "url": "https://pypi.python.org/simple",
+                "verify_ssl": true
+            }
+        ]
+    },
+    "default": {
+        "aiohttp": {
+            "hash": "sha256:e7ab4bc22e36a455d604d6fce8b51afd41141d76052dfce3e447121af4e77acd",
+            "version": "==2.0.3"
+        },
+        "async_timeout": {
+            "hash": "sha256:2507257417470f41e40ae9265d0abdbff6d936b6e0d5831132d35714c9cd433d",
+            "version": "==1.2.0"
+        },
+        "chardet": {
+            "hash": "sha256:aaf514bde38020b4f1e42c6a6e141f2827a8a58ccfc3b22b6ff5a1a4b50be56e",
+            "version": "==2.3.0"
+        },
+        "lxml": {
+            "hash": "sha256:aa502d78a51ee7d127b4824ff96500f0181d3c7826e6ee7b800d068be79361c7",
+            "version": "==3.7.3"
+        },
+        "multidict": {
+            "hash": "sha256:a77aa8c9f68846c3b5db43ff8ed2a7a884dbe845d01f55113a3fba78518c4cd7",
+            "version": "==2.1.4"
+        },
+        "uvloop": {
+            "hash": "sha256:6c55a97b917bda91a379b44158a23d8c9c477845cd3c24438702f22fbc3aca13",
+            "version": "==0.8.0"
+        },
+        "yarl": {
+            "hash": "sha256:d92947434946bf47e3ee2123f4ea785ea4c7d5ba37c93fd2142470868dc2a01b",
+            "version": "==0.10.0"
+        }
+    },
+    "develop": {}
+}
