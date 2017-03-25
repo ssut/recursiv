@@ -21,7 +21,7 @@ def main_parser() -> argparse.ArgumentParser:
     parser.add_argument('-c', '--connections',
                         type=int,
                         nargs='?',
-                        default=5,
+                        default=30,
                         help='Number of concurrent downloads')
     parser.add_argument('-d', '--debug',
                         action='store_true',

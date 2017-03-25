@@ -4,10 +4,11 @@ import asyncio
 import logging
 from urllib.parse import urlparse
 
+import aiofiles
 import aiohttp
 import uvloop
 
-from .parser import extract_links
+from .parser import bitformat, extract_links
 
 
 class RecursivClient:
@@ -19,17 +20,22 @@ class RecursivClient:
         if index_url[-1] != '/':
             index_url += '/'
         self.index_url = index_url
+        self._index_url = urlparse(index_url)
+        self.index_location = '{0.scheme}://{0.netloc}/'.format(
+            self._index_url)
         self.num_connections = num_connections
         self.output_dir = output_dir
         self.logger = logging.getLogger('recursiv')
+        self.chunk_size = 1 << 15
 
         self.directories = []
         self.files = []
+        self.downloaded = 0
 
     @property
     def session(self) -> aiohttp.ClientSession:
         if self._session is None or self._session.closed:
-            raise RuntimeError('Attempted to use a closed session')
+            self._session = aiohttp.ClientSession()
         return self._session
 
     async def _collect_urls(self, session: aiohttp.ClientSession, url: str):
@@ -58,24 +64,61 @@ class RecursivClient:
         self.logger.info('Total files found: {}'.format(len(self.files)))
 
     def create_directories(self):
-        root = urlparse(self.index_url).path[1:]
         cwd = os.getcwd()
         if self.output_dir.startswith('.'):
             self.output_dir = os.path.abspath(
                 os.path.join(cwd, self.output_dir))
-        # create a root directory
-        os.makedirs(os.path.join(self.output_dir, root), exist_ok=True)
+
         for path in self.directories:
             target = os.path.join(self.output_dir, path)
             os.makedirs(target, exist_ok=True)
 
+    async def _download(self, sem: asyncio.Semaphore, path: str):
+        async with sem:
+            async with self.session as session:
+                url = self.index_location + path
+                chunk_size = self.chunk_size
+                async with session.get(url, chunked=True) as resp:
+                    size = int(resp.headers.get('content-length'))
+                    self.logger.info('{0:03.2f}% [{1}/{2}] STARTED {3} {4}'.format(
+                        self.downloaded / len(self.files),
+                        self.downloaded,
+                        len(self.files),
+                        bitformat(size),
+                        path
+                    ))
+                    async with aiofiles.open(path, 'wb') as fd:
+                        while True:
+                            chunk = await resp.content.read(chunk_size)
+                            if not chunk:
+                                break
+                            await fd.write(chunk)
+                    self.downloaded += 1
+                    self.logger.info('{0:03.2f}% [{1}/{2}] COMPLETED {3} {4}'.format(
+                        self.downloaded / len(self.files),
+                        self.downloaded,
+                        len(self.files),
+                        bitformat(size),
+                        path
+                    ))
+
+    async def download(self):
+        tasks = []
+        sem = asyncio.Semaphore(self.num_connections)
+
+        for f in self.files:
+            task = asyncio.ensure_future(self._download(sem, f))
+            tasks.append(task)
+
+        done, pending = await asyncio.wait(tasks)
+
     async def _run(self):
-        async with aiohttp.ClientSession() as session:
-            self._session = session
-            self.logger.info('Starting collecting URLs..')
-            await self.collect_urls_from_index()
-            self.logger.info('Creating the same dictory structure..')
-            self.create_directories()
+        self.logger.info('Starting collecting URLs..')
+        await self.collect_urls_from_index()
+        self.logger.info('Creating the same dictory structure..')
+        self.create_directories()
+        self.logger.info('Preparing for downloads..')
+        await self.download()
 
     def run(self):
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())
