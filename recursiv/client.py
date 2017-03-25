@@ -1,5 +1,8 @@
+import os
+import os.path
 import asyncio
 import logging
+from urllib.parse import urlparse
 
 import aiohttp
 import uvloop
@@ -9,7 +12,7 @@ from .parser import extract_links
 
 class RecursivClient:
 
-    def __init__(self, index_url: str, num_connections: int):
+    def __init__(self, index_url: str, output_dir: str, num_connections: int):
         self._session = None
         self._loop = None
 
@@ -17,8 +20,11 @@ class RecursivClient:
             index_url += '/'
         self.index_url = index_url
         self.num_connections = num_connections
+        self.output_dir = output_dir
         self.logger = logging.getLogger('recursiv')
-        self.collected = []
+
+        self.directories = []
+        self.files = []
 
     @property
     def session(self) -> aiohttp.ClientSession:
@@ -29,8 +35,10 @@ class RecursivClient:
     async def _collect_urls(self, session: aiohttp.ClientSession, url: str):
         async with session.get(url) as resp:
             body = await resp.text()
+            path = urlparse(url).path[1:]
             dirs, files = extract_links(body)
-            self.collected.extend(files)
+            self.directories.extend([os.path.join(path, dir) for dir in dirs])
+            self.files.extend([os.path.join(path, file) for file in files])
             for path in dirs:
                 suburl = url + path
                 await self._collect_urls(session, suburl)
@@ -42,16 +50,32 @@ class RecursivClient:
     async def collect_urls_from_index(self):
         task = asyncio.Task(self.collect_urls(self.index_url))
         while not task.done():
-            self.logger.debug('Collected items: {}'.format(
-                len(self.collected)))
+            self.logger.debug('Collected files: {}'.format(
+                len(self.files)))
             await asyncio.sleep(1)
-        self.logger.info('Total items: {}'.format(len(self.collected)))
+        self.logger.info('Total directories found: {}'.format(
+            len(self.directories)))
+        self.logger.info('Total files found: {}'.format(len(self.files)))
+
+    def create_directories(self):
+        root = urlparse(self.index_url).path[1:]
+        cwd = os.getcwd()
+        if self.output_dir.startswith('.'):
+            self.output_dir = os.path.abspath(
+                os.path.join(cwd, self.output_dir))
+        # create a root directory
+        os.makedirs(os.path.join(self.output_dir, root), exist_ok=True)
+        for path in self.directories:
+            target = os.path.join(self.output_dir, path)
+            os.makedirs(target, exist_ok=True)
 
     async def _run(self):
         async with aiohttp.ClientSession() as session:
             self._session = session
-            self.logger.info('Prepared for collecting URLs..')
+            self.logger.info('Starting collecting URLs..')
             await self.collect_urls_from_index()
+            self.logger.info('Creating the same dictory structure..')
+            self.create_directories()
 
     def run(self):
         asyncio.set_event_loop_policy(uvloop.EventLoopPolicy())

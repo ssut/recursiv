@@ -13,6 +13,11 @@ def main_parser() -> argparse.ArgumentParser:
     parser.add_argument('url',
                         metavar='URL',
                         help='URL to download')
+    parser.add_argument('-o', '--output-dir',
+                        type=str,
+                        nargs='?',
+                        default='.',
+                        help='Path to download')
     parser.add_argument('-c', '--connections',
                         type=int,
                         nargs='?',
@@ -42,6 +47,7 @@ def main():
 
     recursiv = RecursivClient(
         index_url=args.url,
+        output_dir=args.output_dir,
         num_connections=args.connections
     )
     recursiv.run()
