@@ -1,6 +1,7 @@
 import argparse
 import logging
 
+from .client import RecursivClient
 from .version import VERSION
 
 
@@ -31,9 +32,19 @@ def main():
     args = parser.parse_args()
     logger = logging.getLogger('recursiv')
     handler = logging.StreamHandler()
-    level = logging.DEBUG if args.verbose else logging.INFO
+    formatter = logging.Formatter(
+        '%(asctime)s %(name)-12s %(levelname)-8s %(message)s')
+    level = logging.DEBUG if args.debug else logging.INFO
+    handler.setFormatter(formatter)
     handler.setLevel(level)
-    logger.setLevel('level')
+    logger.addHandler(handler)
+    logger.setLevel(level)
+
+    recursiv = RecursivClient(
+        index_url=args.url,
+        num_connections=args.connections
+    )
+    recursiv.run()
 
 
 if __name__ == '__main__':
